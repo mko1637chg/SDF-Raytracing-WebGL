@@ -1,2 +1,134 @@
 # SDF-Raytracing-WebGL
-A deterministic SDF real-time ray-tracing renderer implemented with pure fragment shader. Zero geometry data, zero noise. Built-in partition evaluation and coarse proxy speed optimization. Single file size &lt; 50KB. Runs smoothly at 30+ FPS on mobile WebGL.
+
+一个基于 Signed Distance Field（SDF，有符号距离场）与 ray marching（光线步进）的实时渲染器原型。
+
+项目最初使用单个 HTML 文件实现 WebGL 演示，但核心技术并不依赖 HTML：场景表示、距离函数、光线步进、阴影、环境光、反射和体积雾都可以迁移到 GLSL、WGSL、HLSL、CUDA、Python 原型或其他实时渲染引擎中。
+
+> 当前仓库处于早期开放阶段。HTML/WebGL demo 是参考实现，后续可以将渲染核心与演示界面进一步拆分。
+
+## 特性
+
+- 纯片元着色器实现的 SDF ray marching
+- 不依赖网格几何数据，场景由距离函数描述
+- 确定性的渲染路径，不使用随机采样和噪声纹理
+- 场景分区评估：房间区域与冷藏库区域分别计算
+- `mapCoarse()` 粗略距离场，用于阴影、AO 和反射加速
+- 多光源、软阴影近似、环境光探针和屏幕空间交互
+- 反射表面、体积雾、发光材质和 ACES 色调映射
+- 门、铃铛、锁定状态等交互对象
+- 针对移动 WebGL 的动态渲染分辨率调整
+- 单文件 HTML 形式便于分享和快速验证
+
+## Demo
+
+将发布版 HTML 作为静态文件部署即可运行。也可以使用任意静态 HTTP 服务器在本地启动：
+
+```bash
+python3 -m http.server 8080
+```
+
+然后打开 http://localhost:8080/。
+
+请不要只依赖 `file://` 直接打开文件；使用 HTTP 服务器更接近实际部署环境，也便于未来拆分 shader、模块和资源文件。
+
+## 操作
+
+### 桌面端
+
+- 鼠标拖动：转向
+- `WASD` / 方向键：移动
+- 滚轮：缩放视场
+- 在门上按住左键拖动：开关门
+- 右键或 `E`：自动开关门
+- 点击铃铛：上锁或解锁
+
+### 移动端
+
+- 左下角摇杆：移动
+- 拖动画面：转向
+- 双指捏合：缩放
+- 使用右下角按钮控制门
+- 点击铃铛：上锁或解锁
+
+## 渲染流程概览
+
+```text
+相机与输入
+    ↓
+生成世界空间射线
+    ↓
+mapScene()：按空间区域组合 SDF
+    ↓
+ray marching：沿射线累积距离
+    ↓
+法线、材质、阴影、AO、反射与雾
+    ↓
+ACES 色调映射 + Gamma 校正
+    ↓
+屏幕像素
+```
+
+核心思想是：每个 SDF 返回一个点到最近表面的估计距离。只要该距离为正，就可以沿着射线安全地前进相应距离；当距离小于命中阈值时，即认为射线击中了表面。
+
+## 技术文档
+
+完整的技术说明见：
+
+- [docs/TECHNICAL.md](docs/TECHNICAL.md)
+
+文档覆盖：
+
+- SDF 基础与基本几何函数
+- 场景组合和材质 ID
+- ray marching 算法
+- 粗略场景代理与性能优化
+- 光照、阴影、AO、反射和体积雾
+- 从 WebGL 迁移到 Python 或其他引擎的方法
+- 稳定性、精度和性能方面的注意事项
+
+## 与 HTML 的关系
+
+HTML 只是当前演示载体，负责：
+
+- 创建 WebGL context
+- 设置 canvas 和交互界面
+- 收集鼠标、触摸、键盘输入
+- 每帧向 shader 传递相机和场景参数
+
+真正具有可迁移性的部分是渲染核心：
+
+1. 距离函数（SDF）
+2. 场景映射函数
+3. 光线步进器
+4. 法线估计
+5. 材质和光照模型
+6. 反射、阴影和雾的辅助算法
+
+因此，可以把同一个场景描述迁移到 Python/Numpy 原型、Pygame、ModernGL、PyOpenGL、Godot、Unity、Unreal、Three.js、WebGPU 或自研渲染器中。不同平台主要需要重新实现 shader 编译、纹理/缓冲区管理、输入系统和帧循环。
+
+## 项目状态与路线图
+
+- [x] 单文件 WebGL 演示
+- [x] SDF 房间与冷藏库场景
+- [x] 分区场景评估和粗略距离场
+- [x] 动态分辨率和移动端控制
+- [ ] 将演示代码与渲染核心拆分
+- [ ] 增加独立 shader 源文件和构建脚本
+- [ ] 增加跨后端参考实现
+- [ ] 增加性能基准和设备兼容性记录
+- [ ] 增加可复用的场景/材质接口
+- [ ] 增加自动化 shader 编译检查
+
+## 贡献
+
+欢迎提交 issue、性能测试、移植实现和 shader 改进。建议贡献时说明：
+
+- 浏览器、GPU 或运行时版本
+- 屏幕分辨率和实际 FPS
+- 是否使用 WebGL 1 或其他后端
+- 修改前后的渲染效果或截图
+- 是否改变了 SDF 的距离下界、命中阈值或步进上限
+
+## 许可证
+
+仓库目前尚未指定许可证。在正式选择许可证之前，请不要默认项目内容可以自由用于商业产品或再发布。后续建议根据作者意愿加入 MIT、Apache-2.0 或其他明确许可证文件。
